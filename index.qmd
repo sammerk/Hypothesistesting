@@ -1,0 +1,138 @@
+---
+title: "Hypothesis Testing"
+---
+
+```{r}
+#| echo: false
+library(webexercises)
+```
+
+
+## Überblick 🔭
+Mein Plan ist heute die verschiedenen Formen des Testens jeweils einmal vorzuturnen und einmal euch als Aufgabe zu geben. Datengrundlage sollen die Daten von Bürgler et al [-@buergler2023] sein.
+
+## From Data to p-value/BF 🧭
+Bisher haben wir Effektstärken behandelt und das konzeptionelle Verständnis von p-Werten, Bayes Faktoren, Konfidenzintervallen und Highest Posterior Density Intervals geübt. Je nach Hypothese, Design und Daten werden zur Ermittlung dieser Inferenzstatistiken ganz unterschiedliche Verfahren genutzt (z.B. t-Tests, ANOVAs, etc.). **Wie** diese Verfahren von den Daten zu diesen Inferenzstatistiken kommen haben wir bisher ausgeblendet und wird auch zunächst zu komplex für die meisten von uns sein.
+Wichtig ist jedoch dennoch zu lernen a) wie man für seine Daten/Hypothesen geeignete Verfahren auswählt und wie man die Voraussetzungen der Verfahren überblicken und prüfen kann. Hier gibt es typischerweise zweierlei Herangehensweisen: Einerseits lehrt/lernt man entlang der historischen Entwicklung die etabliertesten Tests sowie deren Anwendung und Voraussetzungen Schritt für Schritt, um dann nach und nach zu Übersichten wie in folgenden Abbildungen zu kommen:
+
+:::: {.columns}
+
+::: {.column width='12%'}
+![](img/flow01.jpg){group="my-gallery" width=66%}
+:::
+
+::: {.column width='12%'}
+![](img/flow02.jpg){group="my-gallery" width=66%}
+:::
+
+::: {.column width='12%'}
+![](img/flow03.jpg){group="my-gallery" width=66%}
+:::
+
+::: {.column width='12%'}
+![](img/flow04.jpg){group="my-gallery" width=66%}
+:::
+
+::: {.column width='12%'}
+![](img/flow05.jpg){group="my-gallery" width=66%}
+:::
+
+::: {.column width='12%'}
+![](img/flow06.jpg){group="my-gallery" width=66%}
+:::
+
+::: {.column width='12%'}
+![](img/flow07.jpg){group="my-gallery" width=66%}
+:::
+
+::: {.column width='12%'}
+![](img/flow08.jpg){group="my-gallery" width=66%}
+:::
+
+::::
+<center> {{< fa brands creative-commons >}}{{< fa brands creative-commons-by >}} *Mark A Goss-Sampson* </center> <br>
+
+Oder man lernt von Anfang an ein vglw. komplexes, dafür aber sehr allgemeines und damit mächtiges Verfahren (Generalized Linear Model, GLM) um dann zu Übersichten wie der folgenden zu gelangen:
+
+![](https://lindeloev.github.io/tests-as-linear/linear_tests_cheat_sheet.png){width=20%}
+
+Beide Vorgehensweisen sehen typischerweise viele SWS und Forschungspraktika vor, die wir nicht zur Verfügung haben 🤷. Daher gehen wir im Folgenden exemplarisch vor.
+
+## Gleichheit der Gruppen vor der Intervention ⚖️
+Bürgler et al [-@buergler2023] randomisieren die Teilnehmenden ja auf die drei Gruppen `control`, `imaginary pill` und `open label placebo`. Ziel dieser Randomisierung ist u.a., dass die beiden Gruppen sich vor dem Treatment in den abhängigen Variablen und den (gemessenen wie unbeobachteten) Kovariaten `r mcq(c("unterscheiden", answer = "nicht unterscheiden"))`. Das bedeutet also, dass wir uns z.B. Evidenz für die Omnibuspunktnullhypothese $H_0\text{: }\mu(\text{control}) = \mu(\text{imaginary pill}) = \mu(\text{open label placebo})$. Flow-Chart 6 schlägt uns im Falle für metrische Daten `r mcq(c("einen t-Test", answer = "eine ANOVA", "Kruskal-Wallis"))` vor (falls best. Voraussetzungen erfüllt sind). Da `r mcq(c(answer = "p-Werte", answer = "Konfidenzintervalle", "HPDI", "Bayes Faktoren"))` keine Evidenz für die Nullhypothese liefern können, sollten wir also `r mcq(c("einen p-Wert", "ein Konfidenzintervall", answer = "ein HPDI", answer = "einen Bayes Faktor"))` berechnen.
+
+Im Folgenden wollen wir das für die Variable `PAF_t0` machen. Dazu lesen wir zunächst die Daten ein und verschaffen uns einen Überblick über diese.
+```{r}
+#| message: false
+#| warning: false
+library(readxl) # für den Datenimport
+library(tidyverse) # für Datawrangling
+
+data_buergler_primary <- 
+  read_excel("Data_IP_RCT_primary_outcome.xlsx")
+
+glimpse(data_buergler_primary)
+```
+
+In obigem Output kann man an `<chr>` in der Zeile `$group` erkennen, dass die Variable `group` noch nicht als nominale Variable kodiert ist. Das machen wir im nächsten Schritt.
+```{r}
+data_buergler_primary <- 
+  data_buergler_primary |> 
+  mutate(group_f = as_factor(group))
+```
+
+Dann können wir den Bayes Faktor berechnen
+```{r}
+#| message: false
+#| warning: false
+library(BayesFactor) # für den Bayes Factor
+anovaBF(PAF_t0 ~ group_f, data = data_buergler_primary)
+```
+
+Dieser tendiert zwar zur Nullhypothese liefert aber keine überzeugende Evidenz. Eine graphische Übersicht macht das plausibel:
+```{r}
+library(ggforce) # für sinaplot
+library(ggdist)
+data_buergler_primary |> 
+  ggplot(aes(group_f, PAF_t0)) + 
+  geom_violin() + 
+  geom_sina() +
+  theme_minimal()
+```
+
+`NT` und `IP` Gruppe scheinen sich ähnlicher zu sein. Ein Bayes Faktor für einen Zweigruppenvergeich zwischen diesen Beiden ergibt auch tatsächlich stärkere Evidenz für einen Nulleffekt:
+```{r}
+ttestBF(formula = PAF_t0 ~ group_f,
+        data = data_buergler_primary |> 
+          filter(group != "OLP") |> # OLP aussortieren
+          mutate(group_f = as_factor(group)))
+```
+
+:::{.callout-important collapse=false appearance='default' icon=false}
+## Arbeitauftrag 🏋
+* Legt ein neues, leeres Rstudioprojekt an und speichert die Bürglerdaten dort.
+* Öffnet ein R-Skript oder Quartodokument in dem ihr die obigen Analyseschritte durchführt und falls Zeit bleibt auf weitere Variablen übertragt
+:::
+
+## Testung informativer Hypothesen zu Zeitpunkt vier
+So weit ich das Bürgler et al. [-@buergler2023] entnehmen kann, berechnet das Autorenteam eine ANOVA der Differenzen T1/T4 und testet die Omnibuspunktnullhypothese $H_0\text{: }\mu(\text{Diff control}) = \mu(\text{Diff imaginary pill}) = \mu(\text{Diff open label placebo})$ gegen die theoretisch plausiblen Hypothesen $H_1\text{: }\mu(\text{Diff control}) < \mu(\text{Diff imaginary pill}) < \mu(\text{Diff open label placebo})$ und $H_2\text{: }\mu(\text{Diff control}) < \mu(\text{Diff imaginary pill}) = \mu(\text{Diff open label placebo})$ abzuwägen. Dies kann in JASP und R mithilfe des Paketes `{bain}` erfolgen. Die Syntax dazu sieht wie folgt aus:
+
+
+```{r}
+# zunächst differenzen berechnen
+data_buergler_primary <- 
+  data_buergler_primary |> 
+  mutate(diffPAF = PAF_t0 - PAF_t4)
+
+library(bain)
+infhyp <-
+  bain(lm(diffPAF ~ group_f,
+          data = data_buergler_primary),
+       hypothesis = "group_fNT = group_fIP = group_fOLP; group_fNT < group_fIP = group_fOLP; group_fNT < group_fIP < group_fOLP;")
+
+infhyp
+
+infhyp$BFmatrix
+```
+
+## Literatur

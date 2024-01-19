@@ -1,0 +1,19 @@
+html:
+  css: include/webex.css
+  include-after-body: include/webex.js
+
+bibliography: references.bib
+csl: apa.csl
+author: Samuel Merk
+lightbox: auto
+
+format:
+  html:
+    css: include/webex.css
+    include-after-body: include/webex.js
+    number-sections: true
+    theme: 
+      light: flatly
+      dark: darkly
+    font-size: .8em  
+    embed-resources: true
